@@ -1,0 +1,36 @@
+class Player:
+    def __init__(self, name: str, number: int):
+        self.name = name
+        self.number = number
+
+    def __eq__(self, other):
+        if not isinstance(other, Player):
+            return False
+        return self.name == other.name
+
+    def __str__(self):
+        return f"{self.name} ({self.number})"
+
+
+class Pass:
+    def __init__(self, sender: Player, receiver: Player, nr_of_times: int):
+        self.sender = sender
+        self.receiver = receiver
+        self.nr_of_times = nr_of_times
+
+    def get_weight(self):
+        return self.nr_of_times
+
+    def get_start(self):
+        return self.sender
+
+    def get_end(self):
+        return self.receiver
+
+    def __eq__(self, other):
+        if not isinstance(other, Pass):
+            return False
+        return self.sender == other.sender and self.receiver == other.receiver
+
+    def __str__(self):
+        return f"Pass from {self.sender} to {self.receiver}"
