@@ -1,0 +1,193 @@
+class Player:
+    def __init__(self, name: str, number: int):
+        self.name = name
+        self.number = number
+
+    def __eq__(self, other):
+        if not isinstance(other, Player):
+            return False
+        return self.name == other.name
+
+    def __lt__(self, other):
+        if not isinstance(other, Player):
+            return NotImplemented
+        return self.number < other.number
+
+    def __str__(self):
+        return f"{self.name} ({self.number})"
+
+
+class Pass:
+    def __init__(self, sender: Player, receiver: Player, nr_of_times: int):
+        self.sender = sender
+        self.receiver = receiver
+        self.nr_of_times = nr_of_times
+
+    def get_weight(self):
+        return self.nr_of_times
+
+    def get_start(self):
+        return self.sender
+
+    def get_end(self):
+        return self.receiver
+
+    def __eq__(self, other):
+        if not isinstance(other, Pass):
+            return False
+        return self.sender == other.sender and self.receiver == other.receiver
+
+    def __str__(self):
+        return f"Pass from {self.sender} to {self.receiver}"
+
+
+class PassGraph:
+    def __init__(self):
+        self.players: list[Player] = []
+        self.adj: dict[str, list[Pass]] = {}
+
+    def add_player(self, player: Player):
+        if not self.has_player(player):
+            self.players.append(player)
+            self.adj[player.name] = []
+
+    def has_player(self, speler) -> bool:
+        if isinstance(speler, Player):
+            name = speler.name
+        else:
+            name = str(speler)
+
+        return any(p.name == name for p in self.players)
+
+    def get_player(self, name: str) -> Player | None:
+        for p in self.players:
+            if p.name == name:
+                return p
+        return None
+
+    def add_pass(self, sender: Player, receiver: Player, times: int = 1):
+        if times <= 0:
+            raise ValueError("times must be positive")
+
+        if not (self.has_player(sender) and self.has_player(receiver)):
+            raise ValueError("Both players must be in graph before adding a pass")
+
+        sender_name = sender.name
+
+        passes = self.adj.setdefault(sender_name, [])
+
+        for p in passes:
+            if p.get_end() == receiver: 
+                p.nr_of_times += times
+                return
+
+        new_pass = Pass(sender, receiver, times)
+        passes.append(new_pass)
+
+    def get_pass(self, sender_name: str, receiver_name: str) -> Pass | None:
+        if sender_name not in self.adj:
+            return None
+
+        for p in self.adj[sender_name]:
+            if p.get_end().name == receiver_name:
+                return p
+
+        return None
+
+    def neighbors(self, sender_name: str) -> list[Pass]:
+        return self.adj.get(sender_name, [])
+
+    def total_weight(self, subset: list[str] | None = None) -> int:
+        if subset is None:
+            subset_names = {p.name for p in self.players}
+        else:
+            subset_names = set(subset)
+
+        total = 0
+        for sender_name, passes in self.adj.items():
+            if sender_name not in subset_names:
+                continue
+            for p in passes:
+                receiver_name = p.get_end().name
+                if receiver_name in subset_names:
+                    total += p.get_weight()
+        return total
+
+    def pass_intensity(self, subset: list[str] | None = None) -> float:
+        if subset is None:
+            subset_names = [p.name for p in self.players]
+        else:
+            subset_names = subset
+
+        existing_names = {p.name for p in self.players}
+        S = [name for name in subset_names if name in existing_names]
+        n = len(S)
+
+        if n < 2:
+            return 0.0
+
+        numerator = self.total_weight(S)
+        denominator = n * (n - 1)
+
+        return numerator / denominator
+
+    def top_pairs(self, k: int = 5) -> list[Pass]:
+        all_passes = []
+        for passes in self.adj.values():
+            all_passes.extend(passes)
+
+        all_passes.sort(key=lambda p: p.get_weight(), reverse=True)
+        return all_passes[:k]
+
+    def distribution_from(self, sender_name: str) -> list[tuple[str, int]]:
+
+        passes = self.adj.get(sender_name, [])
+        dist = []
+
+        for p in passes:
+            receiver_name = p.get_end().name
+            count = p.get_weight()
+            dist.append((receiver_name, count))
+
+        dist.sort(key=lambda x: x[1], reverse=True)
+        return dist
+
+def main():
+    g = PassGraph()
+
+    p1 = Player("Eden Hazard", 10)
+    p2 = Player("Kevin De Bruyne", 7)
+    p3 = Player("Romelu Lukaku", 9)
+    p4 = Player("Dries Mertens", 14)
+
+    for p in (p1, p2, p3, p4):
+        g.add_player(p)
+
+    g.add_pass(p1, p2, 3)   # Hazard → KDB
+    g.add_pass(p2, p3, 5)   # KDB → Lukaku
+    g.add_pass(p3, p1, 2)   # Lukaku → Hazard
+    g.add_pass(p1, p3, 4)   # Hazard → Lukaku
+    g.add_pass(p2, p4, 1)   # KDB → Mertens
+    g.add_pass(p3, p4, 6)   # Lukaku → Mertens
+
+    print("Has player Eden Hazard?", g.has_player("Eden Hazard"))
+    print("Player object for KDB:", g.get_player("Kevin De Bruyne"))
+    print("Pass Hazard → Lukaku:", g.get_pass("Eden Hazard", "Romelu Lukaku"))
+    print("Neighbors from KDB:")
+    for p in g.neighbors("Kevin De Bruyne"):
+        print(" ", p)
+
+    subset = ["Eden Hazard", "Kevin De Bruyne", "Romelu Lukaku"]
+    print("Total weight within subset:", g.total_weight(subset))
+    print("Pass intensity in subset:", g.pass_intensity(subset))
+
+    print("Top 3 pairs:")
+    for p in g.top_pairs(3):
+        print(" ", p, "weight =", p.get_weight())
+
+    print("Distribution from Romelu Lukaku:")
+    print(g.distribution_from("Romelu Lukaku"))
+
+
+if __name__ == "__main__":
+    main()
